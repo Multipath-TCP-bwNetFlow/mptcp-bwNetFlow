@@ -1,0 +1,80 @@
+version: '3'
+services:
+  zookeeper:
+    image: 'bitnami/zookeeper:3.6.2'
+    stdin_open: true
+    tty: true
+    ports:
+      - '2181:2181'
+    environment:
+      - ALLOW_ANONYMOUS_LOGIN=yes
+  kafka:
+    image: 'bitnami/kafka:2.6.0'
+    stdin_open: true
+    tty: true
+    ports:
+      - '9092:9092'
+      - '29092:29092'
+    environment:
+      - KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181
+      - ALLOW_PLAINTEXT_LISTENER=yes
+      - KAFKA_DELETE_TOPIC_ENABLE=true
+    depends_on:
+      - zookeeper
+  initializer:
+    image: 'bitnami/kafka:2.6.0'
+    depends_on:
+      - 'kafka'
+    entrypoint: '/bin/bash'
+    command: >
+      -c "sleep 15 &&
+      kafka-topics.sh --create --zookeeper zookeeper:2181 --replication-factor 1 --partitions 1 --topic flows ; &&
+      kafka-topics.sh --create --zookeeper zookeeper:2181 --replication-factor 1 --partitions 1 --topic mptcp-input ; &&
+      kafka-topics.sh --create --zookeeper zookeeper:2181 --replication-factor 1 --partitions 1 --topic flows-enriched ; &&
+      kafka-topics.sh --create --zookeeper zookeeper:2181 --replication-factor 1 --partitions 1 --topic mptcp-joined ;" 
+    depends_on:
+      - kafka
+  goflow:
+    image: cloudflare/goflow:v3.4.1
+    stdin_open: true
+    tty: true
+    ports:
+      - '6343:6343/udp'
+      - '2055:2055/udp'
+    entrypoint: '/bin/sh'
+    command: >
+      -c "sleep 15 ;
+      /goflow -kafka.brokers kafka:9092
+      -kafka.topic flows
+      -nf=true
+      -nf.port 2055"
+    depends_on:
+      - kafka
+      - initializer
+  enricher:
+    image: ghcr.io/bwnetflow/processor_enricher:latest
+    stdin_open: true
+    tty: true
+    restart: unless-stopped
+    environment:
+      KAFKA_BROKERS: kafka:9092
+      KAFKA_IN_TOPIC: flows
+      KAFKA_OUT_TOPIC: flows-enriched
+      KAFKA_CONSUMER_GROUP: test-consumer-group
+      DISABLE_AUTH: 'true'
+      DISABLE_TLS: 'true'
+    depends_on:
+      - kafka
+      - initializer
+  mptcp_aggregator:
+    image: docker.pkg.github.com/submergedtree/mptcp-aggregator/mptcp_aggregator:0.1
+    restart: unless-stopped
+    environment:
+      BWNETFLOW_INPUT_TOPIC: flows-enriched
+      MPTCP_FLOW_INPUT_TOPIC: mptcp-input
+      OUTPUT_TOPIC: mptcp-joined
+      KAFKA_ADDRESS: kafka:9092
+      JOIN_WINDOW_TIME: 120
+    depends_on:
+      - kafka
+      - initializer
