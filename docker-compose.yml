@@ -29,7 +29,7 @@ services:
     command: >
       -c "sleep 15 &&
       kafka-topics.sh --create --zookeeper zookeeper:2181 --replication-factor 1 --partitions 1 --topic flows ; &&
-      kafka-topics.sh --create --zookeeper zookeeper:2181 --replication-factor 1 --partitions 1 --topic mptcp-input ; &&
+            kafka-topics.sh --create --zookeeper zookeeper:2181 --replication-factor 1 --partitions 1 --topic mptcp-packets ; &&
       kafka-topics.sh --create --zookeeper zookeeper:2181 --replication-factor 1 --partitions 1 --topic flows-enriched ; &&
       kafka-topics.sh --create --zookeeper zookeeper:2181 --replication-factor 1 --partitions 1 --topic mptcp-joined ;" 
     depends_on:
@@ -71,7 +71,7 @@ services:
     restart: unless-stopped
     environment:
       BWNETFLOW_INPUT_TOPIC: flows-enriched
-      MPTCP_FLOW_INPUT_TOPIC: mptcp-input
+      MPTCP_FLOW_INPUT_TOPIC: mptcp-packets
       OUTPUT_TOPIC: mptcp-joined
       KAFKA_ADDRESS: kafka:9092
       JOIN_WINDOW_TIME: 120
