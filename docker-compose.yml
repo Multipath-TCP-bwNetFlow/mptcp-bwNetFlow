@@ -10,30 +10,21 @@ services:
       - ALLOW_ANONYMOUS_LOGIN=yes
   kafka:
     image: 'bitnami/kafka:2.6.0'
+    depends_on:
+      - zookeeper
     stdin_open: true
     tty: true
     ports:
-      - '9092:9092'
+      - '9093:9093'
       - '29092:29092'
     environment:
       - KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181
       - ALLOW_PLAINTEXT_LISTENER=yes
       - KAFKA_DELETE_TOPIC_ENABLE=true
-    depends_on:
-      - zookeeper
-  initializer:
-    image: 'bitnami/kafka:2.6.0'
-    depends_on:
-      - 'kafka'
-    entrypoint: '/bin/bash'
-    command: >
-      -c "sleep 15 &&
-      kafka-topics.sh --create --zookeeper zookeeper:2181 --replication-factor 1 --partitions 1 --topic flows ; &&
-      kafka-topics.sh --create --zookeeper zookeeper:2181 --replication-factor 1 --partitions 1 --topic mptcp-packets ; &&
-      kafka-topics.sh --create --zookeeper zookeeper:2181 --replication-factor 1 --partitions 1 --topic flows-enriched ; &&
-      kafka-topics.sh --create --zookeeper zookeeper:2181 --replication-factor 1 --partitions 1 --topic mptcp-joined ;" 
-    depends_on:
-      - kafka
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CLIENT:PLAINTEXT,EXTERNAL:PLAINTEXT
+      - KAFKA_CFG_LISTENERS=CLIENT://:9092,EXTERNAL://:9093
+      - KAFKA_CFG_ADVERTISED_LISTENERS=CLIENT://kafka:9092,EXTERNAL://localhost:9093
+      - KAFKA_INTER_BROKER_LISTENER_NAME=CLIENT
   goflow:
     image: cloudflare/goflow:v3.4.1
     stdin_open: true
@@ -43,16 +34,15 @@ services:
       - '2055:2055/udp'
     entrypoint: '/bin/sh'
     command: >
-      -c "sleep 15 ;
+      -c "sleep 1m ;
       /goflow -kafka.brokers kafka:9092
       -kafka.topic flows
       -nf=true
       -nf.port 2055"
     depends_on:
       - kafka
-      - initializer
   enricher:
-    image: docker.pkg.github.com/submergedtree/processor_enricher/processor_enricher:0.1
+    image: ghcr.io/submergedtree/processor-enricher:latest
     stdin_open: true
     tty: true
     restart: unless-stopped
@@ -65,7 +55,6 @@ services:
       DISABLE_TLS: 'true'
     depends_on:
       - kafka
-      - initializer
   mptcp_aggregator:
     image: ghcr.io/submergedtree/mptcp_aggregator:latest
     restart: unless-stopped
@@ -77,4 +66,3 @@ services:
       JOIN_WINDOW_TIME: 120
     depends_on:
       - kafka
-      - initializer
