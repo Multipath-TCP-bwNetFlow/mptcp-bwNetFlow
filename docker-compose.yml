@@ -67,5 +67,6 @@ services:
       LOG_MPTCP: 'false'
       LOG_FLOW: 'false'
       LOG_JOINED: 'true'
+      ADDRESS_WHITELIST: '193.196.37.204,193.196.38.233,192.168.1.220,193.196.38.1,2001:7c0:2310:0:f816:3eff:fe4f:e553,2001:7c0:2310:0:f816:3eff:fe76:45a2'
     depends_on:
       - kafka
