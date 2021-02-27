@@ -63,7 +63,7 @@ services:
       MPTCP_FLOW_INPUT_TOPIC: mptcp-packets
       OUTPUT_TOPIC: mptcp-joined
       KAFKA_ADDRESS: kafka:9092
-      JOIN_WINDOW_TIME: 120
+      JOIN_WINDOW_TIME: 240
       LOG_MPTCP: 'true'
       LOG_FLOW: 'true'
       LOG_JOINED: 'true'
